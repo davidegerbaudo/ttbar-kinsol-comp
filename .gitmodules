@@ -1,0 +1,3 @@
+[submodule "analytic-nu"]
+	path = analytic-nu
+	url = git@github.com:betchart/analytic-nu.git
