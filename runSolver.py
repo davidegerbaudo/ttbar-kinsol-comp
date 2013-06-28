@@ -3,14 +3,16 @@
 from array import array
 import collections
 import sys
-from math import sin, cos
+from math import sin, cos, pi
 import numpy 
 LinAlgError = numpy.linalg.linalg.LinAlgError
 import time
 import ROOT as r
+r.gROOT.SetBatch(1)
 r.gROOT.LoadMacro('vecUtils.h'+'+')
 lv = r.Math.LorentzVector(r.Math.PtEtaPhiE4D('float'))
 tlv = r.TLorentzVector
+DeltaPhi = r.Math.VectorUtil.DeltaPhi
 r.gROOT.LoadMacro('dileptonSolver/DileptonAnalyticalSolver.cc+')
 solver = r.llsolver.DileptonAnalyticalSolver()
 
@@ -34,6 +36,18 @@ nEventsPerNsol_Sonnensc = collections.defaultdict(int)
 nCallsB, timeCallsB = 0, 0
 nCallsS, timeCallsS = 0, 0
 
+maxNsol = 8
+hnamePre, htitlePre = 'h_Dphi_', 'N solutions vs. #Delta#phi'
+titleX, titleY = '#Delta#phi(MET_{reco}, MET_{fit})', 'N of kinematic solutions'
+h_Dphi_B = r.TH2D(hnamePre+'B', htitlePre+' Betchart;'+titleX+';'+titleY,
+                  50, 0.0, pi, maxNsol+1, -0.5, maxNsol+0.5)
+h_Dphi_S = r.TH2D(hnamePre+'S', htitlePre+' Sonnenschein;'+titleX+';'+titleY,
+                  50, 0.0, pi, maxNsol+1, -0.5, maxNsol+0.5)
+
+def phi_0_twopi(phi) :
+    while phi <  0.0    : phi = phi+2.0*pi
+    while phi >= 2.0*pi : phi = phi-2.0*pi
+    return phi
 for iEntry in xrange(nEntries) :
     inputTree.GetEntry(iEntry)
     it = inputTree
@@ -47,28 +61,33 @@ for iEntry in xrange(nEntries) :
     j0 = lv(jetsPt[0], jetsEta[0], jetsPhi[0], jetsE[0])
     j1 = lv(jetsPt[1], jetsEta[1], jetsPhi[1], jetsE[1])
     metx, mety = metP*cos(metPhi), metP*sin(metPhi)
-    t1 = time.time()
+    metRec =  tlv()
+    metRec.SetXYZM(metx, mety, 0.0, 0.0)
+    metRec = lv(metRec.Pt(), metRec.Eta(), metRec.Phi(), metRec.E())
     try :
+        t1 = time.time()
         dns = doubleNeutrinoSolutions((j0, j1), (l0, l1), (metx, mety))
-        #print solutions.n_
         solutions = dns.nunu_s
+        t2 = time.time()
+        nCallsB += 1
+        timeCallsB += (t2-t1)
+        nSolB = len(solutions)
         if verbose : print "found %d solutions"%len(solutions)
         for sol in solutions :
             n0, n1 = sol[0], sol[1]
             nu, nu_ = tlv(), tlv()
             nu.SetXYZM(n0[0], n0[1], n0[2], 0.0)
             nu_.SetXYZM(n1[0], n1[1], n1[2], 0.0)
-            totMet = nu + nu_
+            metFit = nu + nu_
+            metFit = lv(metFit.Pt(), metFit.Eta(), metFit.Phi(), metFit.E())
+            h_Dphi_B.Fill(phi_0_twopi(DeltaPhi(metFit, metRec)), nSolB)
             if verbose :
-                print "met: magnitude %.1f, phi %.2f"%(totMet.Pt(), totMet.Phi())
-                print "          reco %.1f,     %.2f"%(metP, metPhi)
-        nEventsPerNsol_Betchart[len(sol)] += 1
+                print "met: magnitude %.1f, phi %.2f"%(metFit.Pt(), metFit.Phi())
+                print "          reco %.1f,     %.2f"%(metRec.Pt(), metRec.Phi())
+        nEventsPerNsol_Betchart[nSolB] += 1
     except LinAlgError :
         nEventsPerNsol_Betchart[0] += 1
         #print "skipping singular matrix"
-    t2 = time.time()
-    nCallsB += 1
-    timeCallsB += (t2-t1)
     
     lp = l0 if l0q>0 else l1
     ln = l0 if l1q<0 else l1
@@ -97,13 +116,31 @@ for iEntry in xrange(nEntries) :
     solver.solve(ETmiss, b, bb, lp, lm, mWp, mWm, mt, mtb, mnu, mnub,
                  pnux, pnuy, pnuz, pnubx, pnuby, pnubz,
                  cd_diff, cubic_single_root_cmplx)
-    nEventsPerNsol_Sonnensc[int(pnux.size())] += 1
-    if verbose : print "solver: %d solutions"%pnux.size()
     t2 = time.time()
     nCallsS += 1
     timeCallsS += (t2-t1)
+    nEventsPerNsol_Sonnensc[int(pnux.size())] += 1
+    nSolS = pnux.size()
+    if verbose : print "solver: %d solutions"%nSolS
+    for nx, ny, nz, Nx, Ny, Nz in zip(pnux, pnuy, pnuz, pnubx, pnuby, pnubz) :
+        nu, nu_ = tlv(), tlv()
+        nu.SetXYZM( nx, ny, nz, 0.0)
+        nu_.SetXYZM(Nx, Ny, Nz, 0.0)
+        metFit = nu + nu_
+        metFit = lv(metFit.Pt(), metFit.Eta(), metFit.Phi(), metFit.E())
+        h_Dphi_S.Fill(phi_0_twopi(DeltaPhi(metFit, metRec)), nSolS)
     
+
 print "number of solutions Betchart     : ", nEventsPerNsol_Betchart
 print "time : ",(timeCallsB/nCallsB)
 print "number of solutions Sonnenschein : ", nEventsPerNsol_Sonnensc
 print "time : ",(timeCallsS/nCallsS)
+
+c = r.TCanvas('c_solver_comparison','solver comparison')
+opt = 'colz'
+c.Divide(2)
+c.cd(1)
+h_Dphi_B.Draw(opt)
+c.cd(2)
+h_Dphi_S.Draw(opt)
+for ext in ['png'] : c.SaveAs(c.GetName()+'.'+ext)
