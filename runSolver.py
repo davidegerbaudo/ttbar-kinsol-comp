@@ -12,8 +12,9 @@ r.gROOT.LoadMacro('vecUtils.h'+'+')
 lv = r.Math.LorentzVector(r.Math.PtEtaPhiE4D('float'))
 tlv = r.TLorentzVector
 r.gROOT.LoadMacro('dileptonSolver/DileptonAnalyticalSolver.cc+')
+solver = r.llsolver.DileptonAnalyticalSolver()
 
-sys.path.append('/home/gerbaudo/physics/atlas/ttbarKinFit/analytic-nu')
+sys.path.append('./analytic-nu')
 import nuSolutions as ns
 doubleNeutrinoSolutions = ns.doubleNeutrinoSolutions
 
@@ -27,8 +28,6 @@ nEntries = inputTree.GetEntries()
 if verbose : print "%d entries"%nEntries
 
     #nEntries = 10
-
-solver = r.DileptonAnalyticalSolver()
 
 nEventsPerNsol_Betchart = collections.defaultdict(int)
 nEventsPerNsol_Sonnensc = collections.defaultdict(int)
