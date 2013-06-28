@@ -27,7 +27,7 @@ inputTree = inputFile.Get(treeName)
 nEntries = inputTree.GetEntries()
 if verbose : print "%d entries"%nEntries
 
-    #nEntries = 10
+#nEntries = 10 # just for a quick test
 
 nEventsPerNsol_Betchart = collections.defaultdict(int)
 nEventsPerNsol_Sonnensc = collections.defaultdict(int)
