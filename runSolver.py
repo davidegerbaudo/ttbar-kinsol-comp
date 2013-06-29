@@ -48,7 +48,9 @@ def phi_0_twopi(phi) :
     while phi <  0.0    : phi = phi+2.0*pi
     while phi >= 2.0*pi : phi = phi-2.0*pi
     return phi
-for iEntry in xrange(nEntries) :
+def lv2str(l) :
+    return "Pt : %f Eta : %f Phi : %f E : %f"%(l.Pt(), l.Eta(), l.Phi(), l.E())
+for iEntry in xrange(9100, 9104): #xrange(nEntries) :
     inputTree.GetEntry(iEntry)
     it = inputTree
     lepsPt, lepsEta, lepsPhi, lepsE = it.l_pt, it.l_eta, it.l_phi, it.l_e
@@ -72,8 +74,15 @@ for iEntry in xrange(nEntries) :
         nCallsB += 1
         timeCallsB += (t2-t1)
         nSolB = len(solutions)
-        if verbose : print "found %d solutions"%len(solutions)
-        for sol in solutions :
+        if verbose or nSolB==6 :
+            print "entry[%d] found %d solutions"%(iEntry, len(solutions))
+            print '-'*4+" input "+'-'*4
+            for p in ['l0', 'l1', 'j0', 'j1', 'metRec'] :
+                print "%6s"%p,': ',lv2str(eval(p))
+            for i,ss in enumerate(dns.solutionSets) :
+                print "solutionSets[%d].Z %f"%(i,ss.Z)
+
+        for i,sol in enumerate(solutions) :
             n0, n1 = sol[0], sol[1]
             nu, nu_ = tlv(), tlv()
             nu.SetXYZM(n0[0], n0[1], n0[2], 0.0)
@@ -81,9 +90,12 @@ for iEntry in xrange(nEntries) :
             metFit = nu + nu_
             metFit = lv(metFit.Pt(), metFit.Eta(), metFit.Phi(), metFit.E())
             h_Dphi_B.Fill(phi_0_twopi(DeltaPhi(metFit, metRec)), nSolB)
-            if verbose :
-                print "met: magnitude %.1f, phi %.2f"%(metFit.Pt(), metFit.Phi())
-                print "          reco %.1f,     %.2f"%(metRec.Pt(), metRec.Phi())
+            if verbose or nSolB==6:
+                print '-'*4+" solution %d "%i+'-'*4
+                print "n0: ",n0
+                print "n1: ",n1
+                print "met fit: Pt %.1f, phi %.2f"%(metFit.Pt(), metFit.Phi())
+                print "met rec  Pt %.1f, phi %.2f"%(metRec.Pt(), metRec.Phi())
         nEventsPerNsol_Betchart[nSolB] += 1
     except LinAlgError :
         nEventsPerNsol_Betchart[0] += 1
