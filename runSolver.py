@@ -73,6 +73,7 @@ for iEntry in xrange(nEntries) :
         timeCallsB += (t2-t1)
         nSolB = len(solutions)
         if verbose : print "found %d solutions"%len(solutions)
+        if nSolB==1 : print "1 sol, Z=",', '.join(["%.2f"%s.Z for s in dns.solutionSets])
         for sol in solutions :
             n0, n1 = sol[0], sol[1]
             nu, nu_ = tlv(), tlv()
